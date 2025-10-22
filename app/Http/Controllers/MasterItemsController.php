@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\MasterItem;
+use App\Models\KategoriItem;
 use Illuminate\Http\Request;
 
 class MasterItemsController extends Controller
@@ -23,9 +24,15 @@ class MasterItemsController extends Controller
 
         if (!empty($kode)) $data_search = $data_search->where('kode', $kode);
         if (!empty($nama)) $data_search = $data_search->where('nama', 'LIKE', '%' . $nama . '%');
-        if (!empty($hargamin)) $data_search = $data_search->where('harga_beli', '>=', $hargamin)->where('harga_beli', '<=', $hargamax);
+        if (!empty($hargamin) && !empty($hargamax)) {
+            $data_search->whereBetween('harga_beli', [$hargamin, $hargamax]);
+        } elseif (!empty($hargamin) && empty($hargamax)) {
+            $data_search->where('harga_beli', '>=', $hargamin);
+        } elseif (!empty($hargamax) && empty($hargamin)) {
+            $data_search->where('harga_beli', '<=', $hargamax);
+        }
 
-        $data_search = $data_search->select('kode', 'nama', 'jenis', 'harga_beli', 'laba', 'supplier')->orderBy('id')->get();
+        $data_search = $data_search->select('kode', 'nama', 'jenis', 'harga_beli', 'laba', 'supplier', 'foto')->orderBy('id')->get();
 
 
         return json_encode([
@@ -37,12 +44,20 @@ class MasterItemsController extends Controller
     public function formView($method, $id = 0)
     {
         if ($method == 'new') {
-            $item = [];
+            $item = null; // no item yet
         } else {
             $item = MasterItem::find($id);
         }
-        $data['item'] = $item;
-        $data['method'] = $method;
+
+        // Fetch all categories
+        $kategoris = KategoriItem::all();
+
+        $data = [
+            'item' => $item,
+            'method' => $method,
+            'kategoris' => $kategoris
+        ];
+
         return view('master_items.form.index', $data);
     }
 
@@ -71,6 +86,19 @@ class MasterItemsController extends Controller
         $data_item->kode = $kode;
         $data_item->supplier = $request->supplier;
         $data_item->jenis = $request->jenis;
+        $data_item->kategori = $request->kategori_item_id;
+
+        if ($request->hasFile('foto')) {
+            if ($method != 'new' && $data_item->foto && file_exists(public_path('uploads/foto_items/' . $data_item->foto))) {
+                unlink(public_path('uploads/foto_items/' . $data_item->foto));
+            }
+
+            $file = $request->file('foto');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('uploads/foto_items'), $filename);
+
+            $data_item->foto = $filename;
+        }
         $data_item->save();
 
         return redirect('master-items');
@@ -85,13 +113,12 @@ class MasterItemsController extends Controller
     public function updateRandomData()
     {
         $data = MasterItem::get();
-        foreach($data as $item)
-        {
+        foreach ($data as $item) {
             $kode = $item->id;
             $kode = str_pad($kode, 5, '0', STR_PAD_LEFT);
 
-            $item->harga_beli = rand(100,1000000);
-            $item->laba = rand(10,99);
+            $item->harga_beli = rand(100, 1000000);
+            $item->laba = rand(10, 99);
             $item->kode = $kode;
             $item->supplier = $this->getRandomSupplier();
             $item->jenis = $this->getRandomJenis();
@@ -101,15 +128,15 @@ class MasterItemsController extends Controller
 
     private function getRandomSupplier()
     {
-        $array = ['Tokopaedi','Bukulapuk','TokoBagas','E Commurz','Blublu'];
-        $random = rand(0,4);
+        $array = ['Tokopaedi', 'Bukulapuk', 'TokoBagas', 'E Commurz', 'Blublu'];
+        $random = rand(0, 4);
         return $array[$random];
     }
 
     private function getRandomJenis()
     {
-        $array = ['Obat','Alkes','Matkes','Umum','ATK'];
-        $random = rand(0,4);
+        $array = ['Obat', 'Alkes', 'Matkes', 'Umum', 'ATK'];
+        $random = rand(0, 4);
         return $array[$random];
     }
 }

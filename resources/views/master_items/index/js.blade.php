@@ -11,7 +11,9 @@
     $(document).ready(function() {
         $('#table').DataTable({
             searching: false,
-            order: [[0, 'desc']],
+            order: [
+                [0, 'desc']
+            ],
         });
         getData()
     });
@@ -20,8 +22,8 @@
         getData()
     })
 
-    function getData(){
-        
+    function getData() {
+
         $('#loading-filter').show();
         var dataTableObj = $('#table').DataTable();
         var filter_kode = $('#filter-kode').val()
@@ -31,21 +33,33 @@
         dataTableObj.clear().draw();
 
         $.ajax({
-            url: '{{url("master-items/search")}}',
+            url: '{{ url('master-items/search') }}',
             dataType: 'json',
             tryCount: 0,
             retryLimit: 3,
-            data: 'kode=' + filter_kode + '&nama=' + filter_nama + '&hargamin=' + filter_harga_min + '&hargamax=' + filter_harga_max,
+            data: 'kode=' + filter_kode + '&nama=' + filter_nama + '&hargamin=' + filter_harga_min +
+                '&hargamax=' + filter_harga_max,
             success: function(results) {
                 var data = results.data
+                const baseImageUrl = "{{ asset('uploads/foto_items') }}";
+
 
                 $.each(data, function(index, item) {
                     array_temp = [];
                     var harga_jual = item.harga_beli + item.harga_beli * item.laba / 100;
                     harga_jual = Math.round(harga_jual)
                     var kode = item.kode;
-
-                    var html = `<a href="{{url('master-items/view/')}}/` + kode + `" class="btn btn-primary">View</a>`
+                    var foto_html = '';
+                    if (item.foto && item.foto !== '') {
+                        foto_html = `<img src="${baseImageUrl}/${item.foto}" 
+                         alt="Foto ${item.nama}" 
+                         width="60" 
+                         class="rounded border">`;
+                    } else {
+                        foto_html = `<span class="text-muted">Tidak ada foto</span>`;
+                    }
+                    var html = `<a href="{{ url('master-items/view/') }}/` + kode +
+                        `" class="btn btn-primary">View</a>`
 
                     $.each(item, function(obj_name, obj_value) {
                         if (obj_name == 'laba') return false;
@@ -53,6 +67,7 @@
                     })
                     array_temp.push(harga_jual)
                     array_temp.push(item.supplier)
+                    array_temp.push(foto_html)
                     array_temp.push(html)
 
 
